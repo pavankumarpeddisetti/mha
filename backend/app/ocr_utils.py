@@ -1,5 +1,6 @@
 """
 OCR utilities using PaddleOCR for high-accuracy text extraction.
+Lazy initialization is used so app startup stays fast.
 """
 import fitz  # PyMuPDF
 import numpy as np
@@ -8,8 +9,20 @@ from paddleocr import PaddleOCR
 from PIL import Image
 import io
 
-# Initialize PaddleOCR once (reuse across requests)
-ocr = PaddleOCR(use_angle_cls=True, lang='en')
+# Lazy-initialized OCR instance (created on first use instead of import time)
+_ocr = None
+
+
+def get_ocr():
+  """
+  Get a singleton PaddleOCR instance, initialized on first call.
+  This avoids heavy startup cost at import time.
+  """
+  global _ocr
+  if _ocr is None:
+      # use_gpu=False is usually more stable on Windows laptops
+      _ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=False)
+  return _ocr
 
 
 def pdf_to_images(file_bytes):
@@ -39,6 +52,7 @@ def run_ocr(image_bytes):
     """Execute OCR on a preprocessed image using PaddleOCR."""
     try:
         img = preprocess_image(image_bytes)
+        ocr = get_ocr()
         result = ocr.ocr(img, cls=True)
         
         text = ""
